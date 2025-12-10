@@ -1,1 +1,538 @@
+<!DOCTYPE html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Secret Santa</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600&family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+    
+    <!-- React & ReactDOM (via CDN pour version autonome) -->
+    <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    
+    <!-- Babel pour comprendre le code React (JSX) directement dans le navigateur -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
+    <style>
+      body {
+        margin: 0;
+        padding: 0;
+        font-family: 'Montserrat', sans-serif;
+        background: #F5F5F5; 
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+      }
+      * {
+        box-sizing: border-box;
+        -webkit-tap-highlight-color: transparent;
+      }
+      /* Subtle Scrollbar */
+      ::-webkit-scrollbar { width: 4px; }
+      ::-webkit-scrollbar-thumb { background: #D4AF37; border-radius: 4px; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react/": "https://aistudiocdn.com/react@^19.2.1/",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+    
+    <!-- Le code de l'application est maintenant ici, prêt à l'emploi -->
+    <script type="text/babel">
+      const { useState, useEffect } = React;
+      const { createRoot } = ReactDOM;
+
+      // --- ICONS (SVG) ---
+      const Icons = {
+        Plane: () => (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M22 2L11 13" />
+            <path d="M22 2L15 22L11 13L2 9L22 2Z" />
+          </svg>
+        ),
+        Gift: () => (
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 12 20 22 4 22 4 12" />
+            <rect x="2" y="7" width="20" height="5" />
+            <line x1="12" y1="22" x2="12" y2="7" />
+            <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+            <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
+          </svg>
+        ),
+        Ticket: () => (
+          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z" />
+            <path d="M13 5v14" />
+            <path d="M9 5v14" />
+          </svg>
+        ),
+        Check: () => (
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        ),
+        Close: () => (
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="6" x2="6" y2="18" />
+            <line x1="6" y1="6" x2="18" y2="18" />
+          </svg>
+        )
+      };
+
+      // --- CONFIGURATION IMAGES ---
+      const IMAGES = {
+        room: "https://lh3.googleusercontent.com/d/1bcw9k_Qm5MYbB0NZX6QWyPXOBvChsa9X", 
+        dublin: "https://lh3.googleusercontent.com/d/1eYsaRIGb8p4E60zEQbSt-D-j7vRImSsA",
+        protest: "https://lh3.googleusercontent.com/d/1LMy5CKsUp51JLQUKTXwveL_iPU3ps4JE",
+        sofa: "https://lh3.googleusercontent.com/d/107W7_qg_NfSFTGo0FKZ2Hy5TOsOdx9es",
+        endGame: "https://lh3.googleusercontent.com/d/1UTv3TKwv3_l-pEtMzLr41drBgyWndv4a",
+      };
+
+      // --- Theme Premium ---
+      const theme = {
+        primary: "#1A252F",
+        secondary: "#546E7A",
+        gold: "#D4AF37",
+        white: "#FFFFFF",
+        success: "#2E7D32"
+      };
+
+      const App = () => {
+        const [started, setStarted] = useState(false);
+        const [activeQuest, setActiveQuest] = useState(null);
+        const [completed, setCompleted] = useState([]);
+        const [gameOver, setGameOver] = useState(false);
+        const [imageLoaded, setImageLoaded] = useState(false);
+
+        const handleStartGame = () => {
+          setStarted(true);
+        };
+
+        // --- Styles Dynamiques ---
+        const styles = {
+          mainContainer: {
+            width: "100vw",
+            height: "100vh",
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backgroundColor: "#1e1e1e",
+            overflow: "hidden",
+            position: "relative",
+          },
+          gameWrapper: {
+            position: "relative",
+            height: "90vh", 
+            width: "auto", 
+            borderRadius: "16px",
+            overflow: "hidden",
+            boxShadow: "0 10px 40px rgba(0,0,0,0.5)",
+            backgroundColor: theme.primary, 
+            border: "4px solid white",
+            display: "flex",
+            justifyContent: "center",
+          },
+          mainImage: {
+            height: "100%",
+            width: "auto",
+            display: "block",
+            objectFit: "contain",
+            filter: "saturate(1.25) contrast(1.1) brightness(1.02)",
+          },
+          scoreBadge: {
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            fontFamily: "'Montserrat', sans-serif",
+            fontSize: "12px",
+            fontWeight: 700,
+            color: theme.primary,
+            background: "rgba(255, 255, 255, 0.95)",
+            padding: "10px 20px",
+            borderRadius: "30px",
+            boxShadow: "0 4px 15px rgba(0,0,0,0.2)",
+            border: `1px solid ${theme.gold}`,
+          },
+          itemContainer: (top, left, isCompleted) => ({
+            position: "absolute",
+            top,
+            left,
+            width: "22px",
+            height: "22px",
+            cursor: isCompleted ? "default" : "pointer",
+            zIndex: 10,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            background: isCompleted ? "rgba(46, 125, 50, 0.9)" : "rgba(255, 255, 255, 0.2)",
+            borderRadius: "50%",
+            border: isCompleted ? "none" : "1.5px solid rgba(255,255,255,0.8)",
+            boxShadow: isCompleted ? "0 2px 10px rgba(0,0,0,0.2)" : "0 0 15px rgba(255,255,255,0.3)",
+            backdropFilter: "blur(2px)",
+            animation: isCompleted ? "none" : "pulse 2.5s infinite",
+            color: isCompleted ? "white" : "transparent",
+            transform: "translate(-50%, -50%)", 
+            transition: "all 0.3s ease"
+          }),
+          modalOverlay: {
+            position: "absolute",
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
+            background: "rgba(26, 37, 47, 0.85)",
+            zIndex: 100,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            backdropFilter: "blur(5px)",
+            padding: "20px",
+          },
+          modalContent: {
+            background: theme.white,
+            width: "100%",
+            maxWidth: "340px",
+            padding: "24px",
+            textAlign: "center",
+            animation: "slideUp 0.4s ease",
+            boxShadow: "0 20px 40px rgba(0,0,0,0.3)",
+            borderRadius: "20px",
+            position: "relative",
+            maxHeight: "85vh",
+            overflowY: "auto",
+          },
+          modalTitle: {
+            fontFamily: "'Playfair Display', serif",
+            fontSize: "22px",
+            color: theme.primary,
+            marginBottom: "10px",
+            marginTop: "0",
+          },
+          btnMain: {
+            background: theme.primary,
+            color: theme.white,
+            border: "none",
+            padding: "12px 24px",
+            fontFamily: "'Montserrat', sans-serif",
+            fontSize: "14px",
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: "1px",
+            cursor: "pointer",
+            marginTop: "15px",
+            width: "100%",
+            borderRadius: "50px",
+            boxShadow: "0 4px 10px rgba(26, 37, 47, 0.3)"
+          },
+          optionBtn: (isSelected, isCorrect) => ({
+            width: "100%",
+            padding: "12px 15px",
+            marginBottom: "8px",
+            border: isSelected 
+              ? (isCorrect ? `1px solid ${theme.success}` : "1px solid #FFCDD2") 
+              : "1px solid #f0f0f0",
+            borderRadius: "12px",
+            background: isSelected 
+              ? (isCorrect ? "#E8F5E9" : "#FFEBEE") 
+              : "white",
+            color: isSelected && !isCorrect ? "#C62828" : theme.primary,
+            fontFamily: "'Montserrat', sans-serif",
+            fontSize: "13px",
+            fontWeight: 500,
+            cursor: "pointer",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            transition: "all 0.2s",
+            boxShadow: "0 2px 4px rgba(0,0,0,0.05)"
+          })
+        };
+
+        useEffect(() => {
+          if (!document.getElementById("anim-styles")) {
+            const styleSheet = document.createElement("style");
+            styleSheet.id = "anim-styles";
+            styleSheet.innerText = `
+              @keyframes pulse { 
+                0% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.5); } 
+                50% { transform: translate(-50%, -50%) scale(1.1); box-shadow: 0 0 0 6px rgba(255, 255, 255, 0); } 
+                100% { transform: translate(-50%, -50%) scale(1); box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); } 
+              }
+              @keyframes slideUp { 
+                  from { opacity: 0; transform: translateY(30px); } 
+                  to { opacity: 1; transform: translateY(0); } 
+              }
+            `;
+            document.head.appendChild(styleSheet);
+          }
+        }, []);
+
+        const QUESTS = [
+          {
+            id: "dublin",
+            // Ajustement : La robe (dans le sac vert à droite) - Abaissée
+            pos: { top: "72%", left: "79%" }, 
+            image: IMAGES.dublin,
+            title: "💎 Dancing Queen",
+            description: "Oh, serial guesseuse de blind tests, où en sont tes connaissances musicales ?",
+            question: "Sous quel titre provisoire “Dancing Queen” était-elle connue pendant sa phase de composition ?",
+            options: ["Boogaloo", "Queen of the Night", "Midnight Dancer", "Dancing Star"],
+            correctIndex: 0,
+            lutinComment: "Le lutin de Noël pense que ce cadeau pratique pourra t'accompagner dans tes différents voyages et te permettre à toi, oh baroudeuse, de shine bright like a diamond !"
+          },
+          {
+            id: "paris",
+            // Ajustement : Le livre (décalé légèrement vers la gauche et le haut pour voir le dessin)
+            pos: { top: "70%", left: "11%" }, 
+            image: IMAGES.protest,
+            title: "📖 Femme de convictions",
+            description: "Ok, ici, on exagère un peu sur la manif, mais on adore que tu défendes et soutiennes les causes qui te tiennent à coeur.",
+            question: "Quel est le slogan central des mouvements féministes des années 1970 en France ?",
+            options: ["Un pour toutes, toutes pour une", "Le personnel est politique", "Les femmes au pouvoir", "Sororité pour toujours"],
+            correctIndex: 1,
+            lutinComment: "Le lutin de Noël ne sait pas si tu connais cette adresse, mais est sûr que ta librairie n'est jamais complète !"
+          },
+          {
+            id: "lyon",
+            // Ajustement : Les clés (sur la table, positionnées exactement sur les clés)
+            pos: { top: "78%", left: "17%" }, 
+            image: IMAGES.sofa,
+            title: "🔑 Home Sweet Home",
+            description: "N'oublie pas de rentrer à la maison. Oh toi la plus lyonnaise de mes copines, comme tu oublies parfois que Lyon aussi peut être sexy, voici la question, co..., la question co..., la question HOT pour un cadeau tout aussi chaud.",
+            question: "Dans l’ancien jargon de la soierie lyonnaise, quel terme décrivait un geste complice, et parfois très proche...entre ouvriers et ouvrières des ateliers de canuts ?",
+            options: ["La frise du métier", "Le point d’arrêt", "Le coup du métier", "La “bise de canut”"],
+            correctIndex: 3,
+            lutinComment: "Le lutin de Noël te rassure, ce cadeau ne se cache pas au fond de ta table de nuit, accroche le fièrement sur l'arbre du moment ! Un clin d'oeil pour revivre de jolies soirées papotages et rigolades."
+          }
+        ];
+
+        const handleQuestComplete = () => {
+          if (activeQuest) {
+            const newCompleted = [...completed, activeQuest.id];
+            setCompleted(newCompleted);
+            setActiveQuest(null);
+            if (newCompleted.length === QUESTS.length) {
+              setGameOver(true);
+            }
+          }
+        };
+
+        const handleRestart = () => {
+          setStarted(false);
+          setCompleted([]);
+          setGameOver(false);
+        };
+
+        const QuizModal = ({ quest, onClose, onComplete }) => {
+          const [selected, setSelected] = useState(null);
+          const [showSuccess, setShowSuccess] = useState(false);
+          const [feedback, setFeedback] = useState("");
+
+          const errorPhrases = [
+            "Je t'ai connue plus successful",
+            "Toi essayer encore ?",
+            "Où est passé ta gagne ?",
+            "Oh tu me surprends"
+          ];
+
+          const handleClick = (idx) => {
+            if (selected === quest.correctIndex) return;
+            
+            setSelected(idx);
+
+            if (idx === quest.correctIndex) {
+              setFeedback(""); 
+              setTimeout(() => setShowSuccess(true), 800);
+            } else {
+              const randomMsg = errorPhrases[Math.floor(Math.random() * errorPhrases.length)];
+              setFeedback(randomMsg);
+            }
+          };
+
+          return (
+            <div style={styles.modalOverlay}>
+              <div style={styles.modalContent}>
+                <button onClick={onClose} style={{ position: "absolute", top: "15px", right: "15px", background: "white", border: "none", cursor: "pointer", color: theme.secondary, borderRadius: "50%", padding: "5px", boxShadow: "0 2px 5px rgba(0,0,0,0.1)", zIndex: 5 }}>
+                  <Icons.Close />
+                </button>
+                
+                {!showSuccess ? (
+                  <>
+                    <h2 style={styles.modalTitle}>{quest.title}</h2>
+                    {quest.description && (
+                      <p style={{
+                        fontFamily: "'Montserrat', sans-serif", 
+                        fontSize: "13px", 
+                        color: theme.secondary, 
+                        marginBottom: "15px", 
+                        marginTop: "-5px", 
+                        lineHeight: "1.4",
+                        fontStyle: "italic"
+                      }}>
+                        {quest.description}
+                      </p>
+                    )}
+
+                    <div style={{ width: "100%", height: "250px", borderRadius: "12px", overflow: "hidden", marginBottom: "20px" }}>
+                      <img src={quest.image} style={{ width: "100%", height: "100%", objectFit: "cover" }} alt="Quest" />
+                    </div>
+                    <p style={{fontFamily: "'Montserrat', sans-serif", fontSize: "14px", fontWeight: 500, color: theme.primary, marginBottom: "20px"}}>{quest.question}</p>
+                    <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
+                      {quest.options.map((opt, idx) => {
+                        const isSelected = selected === idx;
+                        const isCorrect = idx === quest.correctIndex;
+                        return (
+                          <button 
+                            key={idx} 
+                            onClick={() => handleClick(idx)}
+                            style={styles.optionBtn(isSelected, isCorrect)}
+                          >
+                            <span>{opt}</span>
+                            {isSelected && isCorrect && <span style={{color: theme.success, fontWeight: "bold"}}>✓</span>}
+                            {isSelected && !isCorrect && <span style={{color: "#D32F2F", fontWeight: "bold"}}>✗</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    <div style={{ height: "20px", marginTop: "10px", color: "#D32F2F", fontSize: "13px", fontWeight: 600, opacity: feedback ? 1 : 0, transition: "opacity 0.3s" }}>
+                      {feedback}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ animation: "slideUp 0.5s" }}>
+                    <div style={{ color: theme.gold, marginBottom: "15px", display: "flex", justifyContent:"center" }}>
+                      <Icons.Gift />
+                    </div>
+                    <h3 style={{...styles.modalTitle, fontSize: "26px"}}>Ouvre ton paquet</h3>
+                    <p style={{fontFamily: "'Montserrat', sans-serif", fontSize: "14px", color: theme.secondary, lineHeight: "1.6", fontStyle: "italic"}}>
+                      "{quest.lutinComment}"
+                    </p>
+                    <button onClick={onComplete} style={styles.btnMain}>
+                      Continuer
+                    </button>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        };
+
+        return (
+          <div style={styles.mainContainer}>
+            <div style={styles.gameWrapper}>
+              
+              <div style={{ position: "absolute", bottom: "20px", right: "20px", zIndex: 20 }}>
+                <div style={styles.scoreBadge}>
+                    <Icons.Gift /> 
+                    <span>SECRET SANTA {completed.length} / 3</span>
+                </div>
+              </div>
+
+              <img 
+                src={IMAGES.room} 
+                alt="Room" 
+                style={{...styles.mainImage, opacity: imageLoaded ? 1 : 0, transition: 'opacity 0.5s'}}
+                onLoad={() => setImageLoaded(true)}
+              />
+              
+              {!imageLoaded && (
+                <div style={{position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', display: 'flex', justifyContent: 'center', alignItems: 'center', color: 'white'}}>
+                  <div style={{animation: 'pulse 1s infinite'}}>Chargement...</div>
+                </div>
+              )}
+
+              {imageLoaded && QUESTS.map(q => {
+                const isDone = completed.includes(q.id);
+                return (
+                  <div 
+                    key={q.id} 
+                    style={styles.itemContainer(q.pos.top, q.pos.left, isDone)}
+                    onClick={() => !isDone && setActiveQuest(q)}
+                  >
+                    {isDone && <Icons.Check />}
+                  </div>
+                );
+              })}
+
+              {!started && imageLoaded && (
+                <div style={styles.modalOverlay}>
+                   <div style={styles.modalContent}>
+                    <div style={{marginBottom: "15px", color: theme.primary, display: 'flex', justifyContent: 'center'}}>
+                      <div style={{padding: "12px", background: "#f0f4f8", borderRadius: "50%"}}>
+                          <Icons.Plane />
+                      </div>
+                    </div>
+                    <h1 style={styles.modalTitle}>Lam's Airline</h1>
+                    <div style={{ width: "30px", height: "2px", background: theme.gold, margin: "15px auto" }}></div>
+                    <p style={{fontFamily: "'Montserrat', sans-serif", fontSize: "14px", color: theme.secondary, lineHeight: "1.6"}}>
+                      Bienvenue à bord.<br/>
+                      Te voici en salle d'embarquement. Les lutins de Noël m'ont soufflé que tu étais la reine des quizz. Trouve les bonnes réponses pour pouvoir ouvrir tes cadeaux.
+                    </p>
+                    <button 
+                      onClick={handleStartGame}
+                      style={styles.btnMain}
+                    >
+                      Je joue !
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {activeQuest && <QuizModal quest={activeQuest} onClose={() => setActiveQuest(null)} onComplete={handleQuestComplete} />}
+              
+              {gameOver && (
+                <div style={{...styles.modalOverlay, background: "rgba(26, 37, 47, 0.95)" }}>
+                  <div style={{...styles.modalContent, background: "transparent", color: "white", boxShadow: "none", maxWidth: "450px" }}>
+                    <div style={{ width: "100%", maxWidth: "250px", height: "350px", margin: "0 auto 25px", borderRadius: "16px", overflow: "hidden", border: `3px solid ${theme.gold}`, boxShadow: "0 10px 30px rgba(0,0,0,0.5)" }}>
+                        <img src={IMAGES.endGame} style={{ width: "100%", height: "100%", display: "block", objectFit: "cover", objectPosition: "top" }} alt="Joyeux Secret Santa" />
+                    </div>
+
+                    <h1 style={{...styles.modalTitle, color: "white", fontSize: "28px", marginBottom: "20px" }}>Joyeux Secret Santa !</h1>
+                    
+                    <p style={{fontFamily: "'Montserrat', sans-serif", color: "#e0e0e0", fontSize: "15px", lineHeight: "1.8", textAlign: "center"}}>
+                      Le lutin de Noël espère que tu as apprécié son animation pour te faire patienter jusqu'à ton prochain vol. <br/><br/>
+                      Sur Lam's airlines, soyez sûrs de ne jamais vous ennuyer, de jouer, de partager de vraies visions engagées, et de passer des moments lyonnais d'exception.
+                      <br/><br/>
+                      <strong style={{color: theme.gold, fontSize: "18px", display: "block", marginTop: "10px"}}>Vivement 2026 !</strong>
+                    </p>
+
+                    <button 
+                      onClick={handleRestart}
+                      style={{
+                        ...styles.btnMain, 
+                        marginTop: "30px", 
+                        background: "rgba(255,255,255,0.1)", 
+                        border: "1px solid rgba(255,255,255,0.3)", 
+                        fontSize: "12px",
+                        width: "auto",
+                        padding: "12px 30px"
+                      }}
+                    >
+                      Retour en salle d'embarquement
+                    </button>
+                  </div>
+                </div>
+              )}
+
+            </div>
+          </div>
+        );
+      };
+
+      const root = ReactDOM.createRoot(document.getElementById("root"));
+      root.render(<App />);
+    </script>
+  </body>
+</html>
